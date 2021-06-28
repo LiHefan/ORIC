@@ -1,0 +1,7 @@
+# TUM RGBD
+./Examples/RGB-D/rgbd_tum Vocabulary/ORBvoc.txt Examples/RGB-D/TUM1.yaml /home/li/dataset/rgbd_dataset_freiburg1_desk /home/li/dataset/rgbd_dataset_freiburg1_desk/associations.txt
+
+#ICL
+./Examples/RGB-D/rgbd_icl Vocabulary/ORBvoc.txt Examples/RGB-D/ICL.yaml /home/li/dataset/small_living_room /home/li/dataset/small_living_room/associations.txt 
+
+ 
