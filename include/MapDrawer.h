@@ -51,7 +51,7 @@ public:
     void DrawTruthCameraPose(); 
 
     Eigen::MatrixXd mmatTruthCuboids;
-    Eigen::MatrixXd mmatTruthPoses;
+    Eigen::MatrixXd mmatTruthCamPoses;
 private:
 
     float mKeyFrameSize;

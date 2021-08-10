@@ -173,8 +173,9 @@ public:
     /************* add for cuboid ************/
     std::vector<MapCuboid*> mvpMapCuboids;
     std::vector<g2o::cuboid> mvLocalMeasurement;
-    std::vector<cv::Rect> mvBBoxes;     //2d rectangles
+    std::vector<Eigen::Vector4d> mvBBoxes;     //2d rectangles
     void AddMapCuboid(MapCuboid* pMC, const size_t &idx);
+    std::vector<MapCuboid*> GetMapCuboidMatches();
     void EraseMapCuboidMatch(const size_t& idx);
     void EraseMapCuboidMatch(MapCuboid* pMC);
     //BoW

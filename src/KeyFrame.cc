@@ -668,6 +668,13 @@ void KeyFrame::AddMapCuboid(MapCuboid* pMC, const size_t &idx)
     mvpMapCuboids[idx] = pMC;
 }
 
+std::vector<MapCuboid*> KeyFrame::GetMapCuboidMatches()
+{
+    unique_lock<mutex> lock(mMutexFeatures);
+    return mvpMapCuboids;
+
+}
+
 void KeyFrame::EraseMapCuboidMatch(const size_t& idx)
 {
     unique_lock<mutex> lock(mMutexFeatures);

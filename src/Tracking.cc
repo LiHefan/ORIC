@@ -1077,10 +1077,8 @@ void Tracking::CreateNewKeyFrame()
     mCurrentFrame.mpReferenceKF = pKF;
     
     //add for cuboid
-    std::cout << "cuboid mode: "<<CuboidMode<<endl;
     if(CuboidMode){
         DetectCuboid(pKF);
-        //AssociateCuboids(pKF);
     }
 
     if(mSensor!=System::MONOCULAR)
@@ -1606,6 +1604,10 @@ void Tracking::DetectCuboid(KeyFrame* pKF)
     char frame_idx_c[256];
     sprintf(frame_idx_c,"%04d", frame_idx);
     //TODO: read offline bbox
+    string cur_bbox_txt = LocalBBoxFolder + "/" + to_string(frame_idx) + "_yolov3_0.15.txt";
+    Eigen::MatrixXd local_bbox_mat;
+    if(!read_local_bbox_txt(cur_bbox_txt,local_bbox_mat))
+        exit(-1);
 
     //read offline local cuboid measurement
     string cur_meas_txt = LocalMeasFolder + "/" + frame_idx_c +"_3d_cuboids.txt";
@@ -1619,12 +1621,14 @@ void Tracking::DetectCuboid(KeyFrame* pKF)
     {
         pKF->mvpMapCuboids.resize(local_cuboids_mat.rows());
         typedef Eigen::Matrix<double, 9, 1> Vector9d;
-        Vector9d measure_data=local_cuboids_mat.row(cub_id);
+        Vector9d measure_data = local_cuboids_mat.row(cub_id).head(9);
         g2o::cuboid cur_cub;
         cur_cub.fromMinimalVector(measure_data);
         string name = class_names[cub_id];
         cur_cub.name = name;
         pKF->mvLocalMeasurement.push_back(cur_cub);
+        Eigen::Vector4d bbox =  local_bbox_mat.row(cub_id).head(4);
+        pKF->mvBBoxes.push_back(bbox);
         vector<MapCuboid*> vpMapCuboids = mpMap->GetAllMapCuboids();
         cout << "The number of cuboids in map: "<<vpMapCuboids.size()<<endl;
         size_t i=0;
@@ -1633,6 +1637,7 @@ void Tracking::DetectCuboid(KeyFrame* pKF)
             if(name == vpMapCuboids[i]->cuboid_classname)
             {
                 pKF->AddMapCuboid(vpMapCuboids[i],cub_id);
+                vpMapCuboids[i]->addObservation(pKF,cub_id);
                 break;
             }
             
@@ -1641,8 +1646,8 @@ void Tracking::DetectCuboid(KeyFrame* pKF)
         if(i==vpMapCuboids.size())
         {   
             cout<<"Detect new cuboid!!!"<<endl;
-            MapCuboid* pMC = new MapCuboid(mpMap);
-            cout<<"Adding new cuboid to map"<<endl;
+            MapCuboid* pMC = new MapCuboid(mpMap,true);
+            cout<<"Adding new cuboid to map with id "<< pMC->mnId <<endl;
             cv::Mat mat_KF_Twc = pKF -> GetPoseInverse();
             g2o::SE3Quat se3_KF_Twc = Converter::toSE3Quat(mat_KF_Twc);
             g2o::cuboid global_cub = cur_cub.transform_from(se3_KF_Twc);
@@ -1650,6 +1655,7 @@ void Tracking::DetectCuboid(KeyFrame* pKF)
             pMC->SetWorldPos(global_cub);
             pMC->cuboid_classname = name;
             pMC->SetReferenceKeyFrame(pKF);
+            pMC->addObservation(pKF,cub_id);
             pKF->AddMapCuboid(pMC,cub_id);
             mpMap->AddMapCuboid(pMC);
             cout<<"New Cuboid added."<<endl;

@@ -111,10 +111,20 @@ Debug.Stop_time: 100000
 #--------------------------------------------------------------------------------------------
 # Cuboid mode?
 #--------------------------------------------------------------------------------------------
+# cuboid_mode: 1
+# truth_cuboids_txt: /home/li/dataset/small_living_room/cuboid_list_processed.txt
+# local_measurement_folder: /home/li/dataset/small_living_room/offline_cuboid_local
+# local_bbox_folder: /home/li/dataset/small_living_room/yolov3_bbox
+# truth_cam_pose_txt: /home/li/dataset/small_living_room/cam_gt_frame0.txt
+
 cuboid_mode: 1
-cuboid_filelist_txt: /home/li/dataset/small_living_room/offline_cuboid_list.txt
-truth_cuboids_txt: /home/li/dataset/small_living_room/cuboid_list_processed.txt
-local_measurement_folder: /home/li/dataset/small_living_room/offline_cuboid_local
+truth_cuboids_txt: /home/li/dataset/living_room_traj2_frei_png/cuboid_list_processed.txt
+local_measurement_folder: /home/li/dataset/living_room_traj2_frei_png/offline_cuboid_local_2
+local_bbox_folder: /home/li/dataset/living_room_traj2_frei_png/yolov3_bbox
+truth_cam_pose_txt: /home/li/dataset/living_room_traj2_frei_png/cam_gt_frame0.txt
+3d_error_type: SE3
+3d_error_weight: 1.0
+
 
 
 

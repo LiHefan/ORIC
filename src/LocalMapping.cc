@@ -22,6 +22,7 @@
 #include "LoopClosing.h"
 #include "ORBmatcher.h"
 #include "Optimizer.h"
+#include "CuboidMode.h"
 
 #include<mutex>
 #include <unistd.h>
@@ -81,7 +82,13 @@ void LocalMapping::Run()
             {
                 // Local BA
                 if(mpMap->KeyFramesInMap()>2)
+                {
                     Optimizer::LocalBundleAdjustment(mpCurrentKeyFrame,&mbAbortBA, mpMap);
+                    if(ORB_SLAM2::CuboidMode)
+                        Optimizer::CuboidOptimization(mpCurrentKeyFrame, mpMap);
+
+                }
+                    
 
                 // Check redundant local Keyframes
                 KeyFrameCulling();

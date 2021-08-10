@@ -29,3 +29,8 @@ bool read_all_number_txt(const std::string txt_file_name, Eigen::Matrix<T,Eigen:
 //to read offline cuboid data
 bool read_local_meas_txt(const std::string& txt_file_name, std::vector<std::string>& class_names, Eigen::Matrix<double,Eigen::Dynamic, Eigen::Dynamic>& read_number_mat);
 
+//to read offline bbox data
+bool read_local_bbox_txt(const std::string& txt_file_name, Eigen::Matrix<double,Eigen::Dynamic, Eigen::Dynamic>& read_number_mat);
+
+//to read cam gt data 
+bool read_cam_gt_txt(const std::string& txt_file_name, Eigen::Matrix<double,Eigen::Dynamic, Eigen::Dynamic>& read_number_mat);

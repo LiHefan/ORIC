@@ -101,9 +101,9 @@ int main(int argc, char **argv)
         // Wait to load the next frame
         double T=0;
         if(ni<nImages-1)
-            T = 0.5*(vTimestamps[ni+1]-tframe);
+            T = 0.1*(vTimestamps[ni+1]-tframe);
         else if(ni>0)
-            T = 0.5*(tframe-vTimestamps[ni-1]);
+            T = 0.1*(tframe-vTimestamps[ni-1]);
 
         if(ttrack<T)
             usleep((T-ttrack)*1e6);
@@ -162,11 +162,12 @@ void LoadParameters(const string &strSettingFile)
     cv::FileStorage fSettings(strSettingFile, cv::FileStorage::READ);
 
     ORB_SLAM2::CuboidMode=static_cast<bool>(int(fSettings["cuboid_mode"]));
-
-    ORB_SLAM2::CuboidFile=std::string(fSettings["cuboid_filelist_txt"]);
     ORB_SLAM2::TruthCuboidFile=std::string(fSettings["truth_cuboids_txt"]);
     ORB_SLAM2::LocalMeasFolder=std::string(fSettings["local_measurement_folder"]);
-
-    cout<<"truth cuboids list: "<<ORB_SLAM2::TruthCuboidFile<<endl;
-    cout<<"local measurement folder: "<<ORB_SLAM2::LocalMeasFolder;
+    ORB_SLAM2::LocalBBoxFolder=std::string(fSettings["local_bbox_folder"]);
+    ORB_SLAM2::TruthCamFile=std::string(fSettings["truth_cam_pose_txt"]);
+    ORB_SLAM2::ErrorType3D=std::string(fSettings["3d_error_type"]);
+    ORB_SLAM2::ErrorWeight3D=double(fSettings["3d_error_weight"]);
+    cout<<"3d error type: "<<ORB_SLAM2::ErrorType3D<<endl;
+    cout<<"3d error weight: "<<ORB_SLAM2::ErrorWeight3D<<endl;
 }

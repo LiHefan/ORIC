@@ -142,7 +142,7 @@ bool read_local_meas_txt(const std::string& txt_file_name, std::vector<std::stri
     int row_counter=0;
     std::string line;
     if(read_number_mat.rows()==0)
-        read_number_mat.resize(10,9); 
+        read_number_mat.resize(10,10); 
     
     while(getline(filetxt,line)){
         double t;
@@ -152,6 +152,76 @@ bool read_local_meas_txt(const std::string& txt_file_name, std::vector<std::stri
             std::string name;
             ss>>name;
             class_names.push_back(name); 
+            while(ss>>t){
+                read_number_mat(row_counter,colu)=t;
+                colu++;
+            }
+            row_counter++;
+            if(row_counter>=read_number_mat.rows()) //if matrix row is not enough, make more space.
+                read_number_mat.conservativeResize(read_number_mat.rows()*2,read_number_mat.cols());
+        }
+    }
+    filetxt.close();
+
+    read_number_mat.conservativeResize(row_counter,read_number_mat.cols());     //cut into actual rows
+    return true;
+
+}
+
+bool read_local_bbox_txt(const std::string& txt_file_name, Eigen::Matrix<double,Eigen::Dynamic, Eigen::Dynamic>& read_number_mat)
+{
+    if(!std::ifstream(txt_file_name.c_str())){
+        std::cout<<"Error!!! Cannot read txt file "<<txt_file_name<<std::endl;
+        return false;
+    }
+    std::ifstream filetxt(txt_file_name.c_str());
+    int row_counter=0;
+    std::string line;
+    if(read_number_mat.rows()==0)
+        read_number_mat.resize(10,5); 
+    
+    while(getline(filetxt,line)){
+        double t;
+        if(!line.empty()){
+            std::stringstream ss(line);
+            int colu=0;
+            std::string name;
+            ss>>name;
+            while(ss>>t){
+                read_number_mat(row_counter,colu)=t;
+                colu++;
+            }
+            row_counter++;
+            if(row_counter>=read_number_mat.rows()) //if matrix row is not enough, make more space.
+                read_number_mat.conservativeResize(read_number_mat.rows()*2,read_number_mat.cols());
+        }
+    }
+    filetxt.close();
+
+    read_number_mat.conservativeResize(row_counter,read_number_mat.cols());     //cut into actual rows
+    return true;
+
+}
+
+bool read_cam_gt_txt(const std::string& txt_file_name, Eigen::Matrix<double,Eigen::Dynamic, Eigen::Dynamic>& read_number_mat)
+{
+    if(!std::ifstream(txt_file_name.c_str())){
+        std::cout<<"Error!!! Cannot read txt file "<<txt_file_name<<std::endl;
+        return false;
+    }
+    std::ifstream filetxt(txt_file_name.c_str());
+    int row_counter=0;
+    std::string line;
+    if(read_number_mat.rows()==0)
+        read_number_mat.resize(100,7); 
+    
+    while(getline(filetxt,line)){
+        double t;
+        if(!line.empty()){
+            std::stringstream ss(line);
+            int colu=0;
+            int time;
+            ss>>time;
             while(ss>>t){
                 read_number_mat(row_counter,colu)=t;
                 colu++;

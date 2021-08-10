@@ -31,6 +31,7 @@
 #include<Eigen/StdVector>
 
 #include "Converter.h"
+#include "CuboidMode.h"
 
 #include<mutex>
 
@@ -368,7 +369,7 @@ int Optimizer::PoseOptimization(Frame *pFrame)
     // At the next optimization, outliers are not included, but at the end they can be classified as inliers again.
     const float chi2Mono[4]={5.991,5.991,5.991,5.991};
     const float chi2Stereo[4]={7.815,7.815,7.815, 7.815};
-    const int its[4]={10,10,10,10};    
+    const int its[4]={10,10,10,10};
 
     int nBad=0;
     for(size_t it=0; it<4; it++)
@@ -393,7 +394,7 @@ int Optimizer::PoseOptimization(Frame *pFrame)
             const float chi2 = e->chi2();
 
             if(chi2>chi2Mono[it])
-            {                
+            {
                 pFrame->mvbOutlier[idx]=true;
                 e->setLevel(1);
                 nBad++;
@@ -428,7 +429,7 @@ int Optimizer::PoseOptimization(Frame *pFrame)
                 nBad++;
             }
             else
-            {                
+            {
                 e->setLevel(0);
                 pFrame->mvbOutlier[idx]=false;
             }
@@ -439,7 +440,7 @@ int Optimizer::PoseOptimization(Frame *pFrame)
 
         if(optimizer.edges().size()<10)
             break;
-    }    
+    }
 
     // Recover optimized pose and return number of inliers
     g2o::VertexSE3Expmap* vSE3_recov = static_cast<g2o::VertexSE3Expmap*>(optimizer.vertex(0));
@@ -450,8 +451,117 @@ int Optimizer::PoseOptimization(Frame *pFrame)
     return nInitialCorrespondences-nBad;
 }
 
+void Optimizer::CuboidOptimization(KeyFrame* pKF, Map *pMap)
+{
+    vector<MapCuboid*> vLocalMapCuboids = pKF->GetMapCuboidMatches();
+    if(vLocalMapCuboids.empty())    return;
+    list<KeyFrame*> lLocalKeyFrames;
+    lLocalKeyFrames.push_back(pKF);
+    const vector<KeyFrame*> vNeighKFs = pKF->GetVectorCovisibleKeyFrames();
+    for(int i=0, iend=vNeighKFs.size(); i<iend; i++)
+    {
+        KeyFrame* pKFi = vNeighKFs[i];
+        pKFi->mnBALocalForKF = pKF->mnId;
+        if(!pKFi->isBad())
+            lLocalKeyFrames.push_back(pKFi);
+    }
+
+    g2o::SparseOptimizer optimizer;
+    g2o::BlockSolverX::LinearSolverType * linearSolver;
+
+    linearSolver = new g2o::LinearSolverEigen<g2o::BlockSolverX::PoseMatrixType>();
+
+    g2o::BlockSolverX * solver_ptr = new g2o::BlockSolverX(linearSolver);
+
+    g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(solver_ptr);
+    optimizer.setAlgorithm(solver);
+
+    unsigned long maxKFid = 0;
+
+    // Set Local KeyFrame vertices
+    for(list<KeyFrame*>::iterator lit=lLocalKeyFrames.begin(), lend=lLocalKeyFrames.end(); lit!=lend; lit++)
+    {
+        KeyFrame* pKFi = *lit;
+        g2o::VertexSE3Expmap * vSE3 = new g2o::VertexSE3Expmap();
+        vSE3->setEstimate(Converter::toSE3Quat(pKFi->GetPose()));
+        vSE3->setId(pKFi->mnId);
+        vSE3->setFixed(true);
+        optimizer.addVertex(vSE3);
+        if(pKFi->mnId>maxKFid)
+            maxKFid=pKFi->mnId;
+    }
+
+    // Set Local MapCuboid vertices
+    for(vector<MapCuboid*>::iterator vit=vLocalMapCuboids.begin(), vend=vLocalMapCuboids.end(); vit!=vend; vit++)
+    {
+        MapCuboid* pMC = *vit;
+        int id = pMC->mnId + maxKFid + 1;
+        g2o::VertexCuboid* vCuboid=new g2o::VertexCuboid();
+        vCuboid->setEstimate(pMC->GetWorldPos());
+        vCuboid->setId(id);
+        vCuboid->setFixed(false);
+        optimizer.addVertex(vCuboid);
+        const unordered_map<KeyFrame*,size_t> observations = pMC->GetObservations();
+
+        // Set edges
+        for(unordered_map<KeyFrame*,size_t>::const_iterator mit=observations.begin(), mend=observations.end();mit!=mend;mit++)
+        {
+            // 3D error
+            KeyFrame* pKFi = mit->first;
+            const g2o::cuboid cub_mea = pKFi->mvLocalMeasurement[mit->second];
+            if(optimizer.vertex(id) == NULL || optimizer.vertex(pKFi->mnId) == NULL)
+                continue;
+            if(ORB_SLAM2::ErrorType3D == "SE3")
+            {
+                g2o::EdgeSE3Cuboid* e = new g2o::EdgeSE3Cuboid();
+                e->setVertex(0,dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(pKFi->mnId)));
+                e->setVertex(1,dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(id)));
+                e->setMeasurement(cub_mea);
+                Vector9d inv_sigma;
+                inv_sigma<<1,1,1,1,1,1,1,1,1;
+                inv_sigma=inv_sigma*ORB_SLAM2::ErrorWeight3D;
+                Matrix9d info=inv_sigma.cwiseProduct(inv_sigma).asDiagonal();
+                e->setInformation(info);
+                optimizer.addEdge(e);
+
+            }
+            else if(ORB_SLAM2::ErrorType3D == "IOU")
+            {
+                 g2o::EdgeSE3CuboidIOU* e = new g2o::EdgeSE3CuboidIOU();
+                e->setVertex(0,dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(pKFi->mnId)));
+                e->setVertex(1,dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(id)));
+                e->setMeasurement(cub_mea);
+                Vector9d inv_sigma;
+                inv_sigma<<1,1,1,1,1,1,1,1,1;
+                inv_sigma=inv_sigma*ORB_SLAM2::ErrorWeight3D;
+                Matrix9d info=inv_sigma.cwiseProduct(inv_sigma).asDiagonal();
+                e->setInformation(info);
+                optimizer.addEdge(e);
+            }
+                
+        }
+    }
+
+    optimizer.initializeOptimization();
+    optimizer.optimize(10);
+
+    // Recover optimized data
+
+    // Cuboids
+    for(vector<MapCuboid*>::iterator vit=vLocalMapCuboids.begin(), vend=vLocalMapCuboids.end();vit!=vend; vit++)
+    {
+        MapCuboid* pMC = *vit;
+        g2o::VertexCuboid* vCuboid = static_cast<g2o::VertexCuboid*>(optimizer.vertex(pMC->mnId+maxKFid+1));
+        pMC->SetWorldPos(vCuboid->estimate());
+        //cout<<"Optimized pose of cuboid"<<pMC->mnId<<": "<<pMC->GetWorldPos().pose<<endl;
+    }
+
+
+
+}
+
 void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool* pbStopFlag, Map* pMap)
-{    
+{
     // Local KeyFrames: First Breath Search from Current Keyframe
     list<KeyFrame*> lLocalKeyFrames;
 
@@ -469,6 +579,9 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
 
     // Local MapPoints seen in Local KeyFrames
     list<MapPoint*> lLocalMapPoints;
+    //ADD FOR CUBOID
+    // Local MapCuboids seen in Local KeyFrames
+    list<MapCuboid*> lLocalMapCuboids;
     for(list<KeyFrame*>::iterator lit=lLocalKeyFrames.begin() , lend=lLocalKeyFrames.end(); lit!=lend; lit++)
     {
         vector<MapPoint*> vpMPs = (*lit)->GetMapPointMatches();
@@ -483,7 +596,22 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
                         pMP->mnBALocalForKF=pKF->mnId;
                     }
         }
+        vector<MapCuboid*> vpMCs = (*lit)->GetMapCuboidMatches();
+        for(vector<MapCuboid*>::iterator vit=vpMCs.begin(), vend=vpMCs.end(); vit!=vend; vit++)
+        {
+            MapCuboid* pMC = *vit;
+            if(pMC)
+                if(pMC->mnBALocalForKF!=pKF->mnId)
+                {
+                    lLocalMapCuboids.push_back(pMC);
+                    pMC->mnBALocalForKF=pKF->mnId;
+
+                }
+        }
     }
+
+
+
 
     // Fixed Keyframes. Keyframes that see Local MapPoints but that are not Local Keyframes
     list<KeyFrame*> lFixedCameras;
@@ -495,7 +623,7 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
             KeyFrame* pKFi = mit->first;
 
             if(pKFi->mnBALocalForKF!=pKF->mnId && pKFi->mnBAFixedForKF!=pKF->mnId)
-            {                
+            {
                 pKFi->mnBAFixedForKF=pKF->mnId;
                 if(!pKFi->isBad())
                     lFixedCameras.push_back(pKFi);
@@ -505,11 +633,11 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
 
     // Setup optimizer
     g2o::SparseOptimizer optimizer;
-    g2o::BlockSolver_6_3::LinearSolverType * linearSolver;
+    g2o::BlockSolverX::LinearSolverType * linearSolver;
 
-    linearSolver = new g2o::LinearSolverEigen<g2o::BlockSolver_6_3::PoseMatrixType>();
+    linearSolver = new g2o::LinearSolverEigen<g2o::BlockSolverX::PoseMatrixType>();
 
-    g2o::BlockSolver_6_3 * solver_ptr = new g2o::BlockSolver_6_3(linearSolver);
+    g2o::BlockSolverX * solver_ptr = new g2o::BlockSolverX(linearSolver);
 
     g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(solver_ptr);
     optimizer.setAlgorithm(solver);
@@ -518,6 +646,7 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
         optimizer.setForceStopFlag(pbStopFlag);
 
     unsigned long maxKFid = 0;
+    unsigned long maxMPid = 0;
 
     // Set Local KeyFrame vertices
     for(list<KeyFrame*>::iterator lit=lLocalKeyFrames.begin(), lend=lLocalKeyFrames.end(); lit!=lend; lit++)
@@ -578,6 +707,8 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
         vPoint->setId(id);
         vPoint->setMarginalized(true);
         optimizer.addVertex(vPoint);
+        if(id>maxMPid)
+            maxMPid=id;
 
         const map<KeyFrame*,size_t> observations = pMP->GetObservations();
 
@@ -587,7 +718,7 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
             KeyFrame* pKFi = mit->first;
 
             if(!pKFi->isBad())
-            {                
+            {
                 const cv::KeyPoint &kpUn = pKFi->mvKeysUn[mit->second];
 
                 // Monocular observation
@@ -652,6 +783,59 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
         }
     }
 
+    // set MapCuboid vertices
+    // for(list<MapCuboid*>::iterator lit=lLocalMapCuboids.begin(), lend=lLocalMapCuboids.end(); lit!=lend; lit++)
+    // {
+    //     MapCuboid* pMC = *lit;
+    //     int id = pMC->mnId + maxMPid + 1;
+    //     g2o::VertexCuboid* vCuboid=new g2o::VertexCuboid();
+    //     vCuboid->setEstimate(pMC->GetWorldPos());
+    //     vCuboid->setId(id);
+    //     vCuboid->setFixed(false);
+    //     optimizer.addVertex(vCuboid);
+    //     const unordered_map<KeyFrame*,size_t> observations = pMC->GetObservations();
+
+    //     // Set edges
+    //     for(unordered_map<KeyFrame*,size_t>::const_iterator mit=observations.begin(), mend=observations.end();mit!=mend;mit++)
+    //     {
+    //         // 3D error
+    //         KeyFrame* pKFi = mit->first;
+    //         const g2o::cuboid cub_mea = pKFi->mvLocalMeasurement[mit->second];
+    //         if(optimizer.vertex(id) == NULL || optimizer.vertex(pKFi->mnId) == NULL)
+    //             continue;
+    //         if(ORB_SLAM2::ErrorType3D == "SE3")
+    //         {
+    //             g2o::EdgeSE3Cuboid* e = new g2o::EdgeSE3Cuboid();
+    //             e->setVertex(0,dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(pKFi->mnId)));
+    //             e->setVertex(1,dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(id)));
+    //             e->setMeasurement(cub_mea);
+    //             Vector9d inv_sigma;
+    //             inv_sigma<<1,1,1,1,1,1,1,1,1;
+    //             inv_sigma=inv_sigma*ORB_SLAM2::ErrorWeight3D;
+    //             Matrix9d info=inv_sigma.cwiseProduct(inv_sigma).asDiagonal();
+    //             e->setInformation(info);
+    //             optimizer.addEdge(e);
+
+    //         }
+    //         else if(ORB_SLAM2::ErrorType3D == "IOU")
+    //         {
+    //              g2o::EdgeSE3CuboidIOU* e = new g2o::EdgeSE3CuboidIOU();
+    //             e->setVertex(0,dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(pKFi->mnId)));
+    //             e->setVertex(1,dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(id)));
+    //             e->setMeasurement(cub_mea);
+    //             Vector9d inv_sigma;
+    //             inv_sigma<<1,1,1,1,1,1,1,1,1;
+    //             inv_sigma=inv_sigma*ORB_SLAM2::ErrorWeight3D;
+    //             Matrix9d info=inv_sigma.cwiseProduct(inv_sigma).asDiagonal();
+    //             e->setInformation(info);
+    //             optimizer.addEdge(e);
+    //         }
+                
+    //     }
+    // }
+
+
+
     if(pbStopFlag)
         if(*pbStopFlag)
             return;
@@ -711,7 +895,7 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
     vector<pair<KeyFrame*,MapPoint*> > vToErase;
     vToErase.reserve(vpEdgesMono.size()+vpEdgesStereo.size());
 
-    // Check inlier observations       
+    // Check inlier observations
     for(size_t i=0, iend=vpEdgesMono.size(); i<iend;i++)
     {
         g2o::EdgeSE3ProjectXYZ* e = vpEdgesMono[i];
@@ -775,6 +959,15 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
         pMP->SetWorldPos(Converter::toCvMat(vPoint->estimate()));
         pMP->UpdateNormalAndDepth();
     }
+    //TODO: Cuboids
+    // for(list<MapCuboid*>::iterator lit=lLocalMapCuboids.begin(), lend=lLocalMapCuboids.end();lit!=lend; lit++)
+    // {
+    //     MapCuboid* pMC = *lit;
+    //     g2o::VertexCuboid* vCuboid = static_cast<g2o::VertexCuboid*>(optimizer.vertex(pMC->mnId+maxMPid+1));
+    //     pMC->SetWorldPos(vCuboid->estimate());
+    //     //cout<<"Optimized pose of cuboid"<<pMC->mnId<<": "<<pMC->GetWorldPos().pose<<endl;
+    // }
+
 }
 
 
@@ -1066,7 +1259,7 @@ int Optimizer::OptimizeSim3(KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint *> &
     const cv::Mat t2w = pKF2->GetTranslation();
 
     // Set Sim3 vertex
-    g2o::VertexSim3Expmap * vSim3 = new g2o::VertexSim3Expmap();    
+    g2o::VertexSim3Expmap * vSim3 = new g2o::VertexSim3Expmap();
     vSim3->_fix_scale=bFixScale;
     vSim3->setEstimate(g2oS12);
     vSim3->setId(0);

@@ -72,6 +72,12 @@ src/MapCuboid.cc
 src/matrix_utils.cc
 src/CuboidMode.cc
 src/TestCuboid.cc
+
+src/IMU/imudata.cpp
+src/IMU/IMUPreintegrator.cpp
+src/IMU/so3.cpp
+src/IMU/NavState.cpp
+src/IMU/g2otypes.cpp
 )
 
 target_link_libraries(${PROJECT_NAME}

@@ -78,6 +78,7 @@ void Viewer::Run()
     //add for cuboid
     pangolin::Var<bool> menuShowTruthCuboids("menu.Show Truth Cuboids",true,true);
     pangolin::Var<bool> menuShowMapCuboids("menu.Show Map Cuboids",true,true);
+    pangolin::Var<bool> menuShowTruthCamPoses("menu.Show Truth Camera Poses",true,true);
 
     // Define Camera Render Object (for view / scene browsing)
     pangolin::OpenGlRenderState s_cam(
@@ -141,6 +142,8 @@ void Viewer::Run()
             mpMapDrawer->DrawTruthCuboids();
         if(menuShowMapCuboids)
             mpMapDrawer->DrawMapCuboids();
+        if(menuShowTruthCamPoses)
+            mpMapDrawer->DrawTruthCameraPose();
 
         pangolin::FinishFrame();
 

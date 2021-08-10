@@ -321,14 +321,14 @@ void MapDrawer::DrawTruthCuboids()
 
 void MapDrawer::DrawTruthCameraPose()
 {
-    if(mmatTruthPoses.rows()>0)
+    if(mmatTruthCamPoses.rows()>0)
     {
         glLineWidth(mGraphLineWidth*2);
         glBegin(GL_LINE_STRIP);
-        glColor4f(0.0f, 1.0f, 0.0f, 1.0f);
-        for(int pt_id=0;pt_id<mmatTruthPoses.rows();pt_id++)
+        glColor4f(0.0f, 0.0f, 1.0f, 1.0f);
+        for(int pt_id=0;pt_id<mmatTruthCamPoses.rows();pt_id++)
         {
-            glVertex3f(mmatTruthPoses(pt_id,1), mmatTruthPoses(pt_id,2),mmatTruthPoses(pt_id,3));
+            glVertex3f(mmatTruthCamPoses(pt_id,0), mmatTruthCamPoses(pt_id,1),mmatTruthCamPoses(pt_id,2));
         }
         glEnd();
     }

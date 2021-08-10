@@ -10,6 +10,9 @@
 #include <math.h>
 #include <algorithm>  //std::swap
 #include <string>
+#include <boost/geometry/geometries/geometries.hpp>
+#include <boost/geometry/geometries/polygon.hpp>
+#include <boost/geometry/algorithms/intersection.hpp> 
 
 typedef Eigen::Matrix<double, 9, 1> Vector9d;
 typedef Eigen::Matrix<double, 9, 9> Matrix9d;
@@ -194,6 +197,44 @@ public:
 
         return Eigen::Vector4d(rect_center(0),rect_center(1),widthheight(0),widthheight(1));
     }
+
+    double box3d_iou(cuboid sample, cuboid ground)
+    {
+        // get 2d area in the top
+        // append outer and inners() https://www.boost.org/doc/libs/1_65_1/libs/geometry/doc/html/geometry/reference/models/model_polygon.html
+        typedef boost::geometry::model::point<double, 2, boost::geometry::cs::cartesian> point_t;
+        typedef boost::geometry::model::polygon<point_t> polygon_t;
+        polygon_t sam_poly, gt_poly;
+        Eigen::Matrix<double, 3, 8> sam_corner_3d = sample.compute3D_BoxCorner();
+        Eigen::Matrix<double, 3, 8> gt_corner_3d = ground.compute3D_BoxCorner();
+        for (size_t i = 0; i < 4; i++)
+        {
+        point_t sam_top_points(sam_corner_3d(0,i),sam_corner_3d(1,i));
+        point_t gt_top_points(gt_corner_3d(0,i),gt_corner_3d(1,i));
+        boost::geometry::append(sam_poly.outer(), sam_top_points);
+        boost::geometry::append(gt_poly.outer(), gt_top_points);
+        if (i == 3) // add start point to make a closed form
+        {
+            boost::geometry::append(sam_poly.outer(), point_t(sam_corner_3d(0,0),sam_corner_3d(1,0)));
+            boost::geometry::append(gt_poly.outer(), point_t(gt_corner_3d(0,0),gt_corner_3d(1,0)));    
+        }
+        }
+        std::vector<polygon_t> inter_poly;
+        boost::geometry::intersection(sam_poly, gt_poly, inter_poly); 
+        double inter_area = inter_poly.empty() ? 0 : boost::geometry::area(inter_poly.front());
+        double union_area = boost::geometry::area(sam_poly) + boost::geometry::area(gt_poly) - inter_area;// boost::geometry::union_(poly1, poly2, un);
+        double iou_2d = inter_area / union_area;
+        // std::cout << "iou2d: " << iou_2d << std::endl;
+
+        double h_up = std::min(sam_corner_3d(2,4),gt_corner_3d(2,4));
+        double h_down = std::max(sam_corner_3d(2,0),gt_corner_3d(2,0));
+        double inter_vol = inter_area * std::max(0.0, h_up - h_down);
+        double sam_vol = sample.scale(0)*2 * sample.scale(1)*2 * sample.scale(2)*2;
+        double gt_vol = ground.scale(0)*2 * ground.scale(1)*2 * ground.scale(2)*2;
+        double iou_3d = inter_vol / (sam_vol + gt_vol - inter_vol);
+        // std::cout << "iou3d: " << iou_3d << std::endl;
+        return iou_3d;
+    }
 };
 
 class VertexCuboid:public BaseVertex<9,cuboid>{     //this vertex stores object pose to world
@@ -248,6 +289,34 @@ public:
         cuboid global_cube=cuboidVertex->estimate();
         cuboid esti_global_cube=_measurement.transform_from(cam_pose_Twc);
         _error=global_cube.min_log_error(esti_global_cube);
+    }
+};
+
+class EdgeSE3CuboidIOU:public BaseBinaryEdge<9,cuboid,VertexSE3Expmap,VertexCuboid>{
+public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
+    EdgeSE3CuboidIOU(){}
+
+    virtual bool read(std::istream& is){
+        return true;
+    }
+
+    virtual bool write(std::ostream& os) const{
+        return os.good();
+    }
+
+    void computeError(){
+        const VertexSE3Expmap* SE3Vertex=static_cast<const VertexSE3Expmap*>(_vertices[0]);
+        const VertexCuboid* cuboidVertex=static_cast<const VertexCuboid*>(_vertices[1]);
+
+        SE3Quat cam_pose_Twc=SE3Vertex->estimate().inverse();
+        cuboid global_cube=cuboidVertex->estimate();
+        cuboid esti_global_cube=_measurement.transform_from(cam_pose_Twc);
+        double iou = global_cube.box3d_iou(global_cube,esti_global_cube);
+        Vector9d error;
+        error << 1,1,1,1,1,1,1,1,1;
+        error = error * (1-iou);
+        _error=error;
     }
 };
 
