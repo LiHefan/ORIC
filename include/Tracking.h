@@ -40,6 +40,9 @@
 
 #include <mutex>
 
+#include "IMU/imudata.h"
+#include "IMU/configparam.h"
+
 namespace ORB_SLAM2
 {
 
@@ -51,8 +54,35 @@ class LoopClosing;
 class System;
 
 class Tracking
-{  
+{
+public:  
+    // add for IMU
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+    // Flags for relocalization. Create new KF once bias re-computed & flag for preparation for bias re-compute
+    bool mbCreateNewKFAfterReloc;
+    bool mbRelocBiasPrepare;
+    void RecomputeIMUBiasAndCurrentNavstate(NavState& nscur);
+    // 20 Frames are used to compute bias
+    vector<Frame> mv20FramesReloc;
 
+    // Predict the NavState of Current Frame by IMU
+    void PredictNavStateByIMU(bool bMapUpdated);
+    IMUPreintegrator mIMUPreIntInTrack;
+
+    bool TrackWithIMU(bool bMapUpdated=false);
+    bool TrackLocalMapWithIMU(bool bMapUpdated=false);
+
+    ConfigParam* mpParams;
+    cv::Mat GrabImageMonoVI(const cv::Mat &im, const std::vector<IMUData> &vimu, const double &timestamp);
+    // IMU Data since last KF. Append when new data is provided
+    // Should be cleared in 1. initialization beginning, 2. new keyframe created.
+    std::vector<IMUData> mvIMUSinceLastKF;
+    IMUPreintegrator GetIMUPreIntSinceLastKF(Frame* pCurF, KeyFrame* pLastKF, const std::vector<IMUData>& vIMUSinceLastKF);
+    IMUPreintegrator GetIMUPreIntSinceLastFrame(Frame* pCurF, Frame* pLastF);
+
+    Tracking(System* pSys, ORBVocabulary* pVoc, FrameDrawer* pFrameDrawer, MapDrawer* pMapDrawer, Map* pMap,
+             KeyFrameDatabase* pKFDB, const string &strSettingPath, const int sensor, ConfigParam* pParams);
+// -----------------------------------------------------------------
 public:
     Tracking(System* pSys, ORBVocabulary* pVoc, FrameDrawer* pFrameDrawer, MapDrawer* pMapDrawer, Map* pMap,
              KeyFrameDatabase* pKFDB, const string &strSettingPath, const int sensor);

@@ -5,6 +5,130 @@ namespace g2o
 
 using namespace ORB_SLAM2;
 
+void EdgePRIDP::computeError()
+{
+    const Vector3d Pi = computePc();
+
+    // err = obs - pi(Px)
+    _error = _measurement - cam_project(Pi);
+}
+
+Vector3d EdgePRIDP::computePc()
+{
+    const VertexIDP* vIDP = static_cast<const VertexIDP*>(_vertices[0]);
+    const VertexNavStatePR* vPR0 = static_cast<const VertexNavStatePR*>(_vertices[1]);
+    const VertexNavStatePR* vPRi = static_cast<const VertexNavStatePR*>(_vertices[2]);
+    const VertexNavStatePR* vPRcb = static_cast<const VertexNavStatePR*>(_vertices[3]);
+
+    //
+    const Matrix3d R0 = vPR0->estimate().Get_RotMatrix();
+    const Vector3d t0 = vPR0->estimate().Get_P();
+    const Matrix3d Ri = vPRi->estimate().Get_RotMatrix();
+    const Vector3d ti = vPRi->estimate().Get_P();
+    const Matrix3d Rcb = vPRcb->estimate().Get_RotMatrix();
+    const Vector3d tcb = vPRcb->estimate().Get_P();
+
+    // point inverse depth in reference KF
+    double rho = vIDP->estimate();
+    if(rho<1e-6)
+    {
+        std::cerr<<"1. rho = "<<rho<<", rho<1e-6, shoudn't"<<std::endl;
+        rho = 1e-6;
+        setLevel(1);
+    }
+    // point coordinate in reference KF, body
+    Vector3d P0;
+    P0 << refnormxy[0], refnormxy[1], 1;
+    double d=1.0/rho;   // depth
+    P0 *= d;
+
+    // Pi = Rcb*Ri^T*R0*Rcb^T* p0 + ( tcb - Rcb*Ri^T*R0*Rcb^T *tcb + Rcb*Ri^T*(t0-ti) )
+    const Matrix3d Rcic0 = Rcb*Ri.transpose()*R0*Rcb.transpose();
+    const Vector3d Pi = Rcic0*P0 + tcb - Rcic0*tcb + Rcb*Ri.transpose()*(t0-ti);
+    return Pi;
+}
+
+void EdgePRIDP::linearizeOplus()
+{
+    const VertexIDP* vIDP = static_cast<const VertexIDP*>(_vertices[0]);
+    const VertexNavStatePR* vPR0 = static_cast<const VertexNavStatePR*>(_vertices[1]);
+    const VertexNavStatePR* vPRi = static_cast<const VertexNavStatePR*>(_vertices[2]);
+    const VertexNavStatePR* vPRcb = static_cast<const VertexNavStatePR*>(_vertices[3]);
+
+    //
+    const Matrix3d R0 = vPR0->estimate().Get_RotMatrix();
+    const Vector3d t0 = vPR0->estimate().Get_P();
+    const Matrix3d Ri = vPRi->estimate().Get_RotMatrix();
+    const Matrix3d RiT = Ri.transpose();
+    const Vector3d ti = vPRi->estimate().Get_P();
+    const Matrix3d Rcb = vPRcb->estimate().Get_RotMatrix();
+    const Vector3d tcb = vPRcb->estimate().Get_P();
+
+    // point inverse depth in reference KF
+    double rho = vIDP->estimate();
+    if(rho<1e-6)
+    {
+        std::cerr<<"2. rho = "<<rho<<", rho<1e-6, shoudn't"<<std::endl;
+        rho = 1e-6;
+        setLevel(1);    //todo
+    }
+    // point coordinate in reference KF, body
+    Vector3d P0;
+    P0 << refnormxy[0], refnormxy[1], 1;
+    double d=1.0/rho;   // depth
+    P0 *= d;
+
+    // Pi = Rcb*Ri^T*R0*Rcb^T* p0 + ( tcb - Rcb*Ri^T*R0*Rcb^T *tcb + Rcb*Ri^T*(t0-ti) )
+    const Matrix3d Rcic0 = Rcb*Ri.transpose()*R0*Rcb.transpose();
+    const Vector3d Pi = Rcic0*P0 + tcb - Rcic0*tcb + Rcb*Ri.transpose()*(t0-ti);
+
+    // err = obs - pi(Px)
+    // Jx = -Jpi * dpi/dx
+    double x = Pi[0];
+    double y = Pi[1];
+    double z = Pi[2];
+    Matrix<double,2,3> Maux;
+    Maux.setZero();
+    Maux(0,0) = fx;
+    Maux(0,1) = 0;
+    Maux(0,2) = -x/z*fx;
+    Maux(1,0) = 0;
+    Maux(1,1) = fy;
+    Maux(1,2) = -y/z*fy;
+    Matrix<double,2,3> Jpi = Maux/z;
+
+    // 1. J_e_rho, 2x1
+    Vector3d J_pi_rho = Rcic0*(-d*P0);
+    _jacobianOplus[0] = -Jpi * J_pi_rho;
+
+    // 2. J_e_pr0, 2x6
+    Matrix3d J_pi_t0 = Rcb*RiT;
+    Matrix3d J_pi_r0 = -Rcic0*SO3::hat(P0-tcb)*Rcb;
+    Matrix<double,3,6> J_pi_pr0;
+    J_pi_pr0.topLeftCorner(3,3) = J_pi_t0;
+    J_pi_pr0.topRightCorner(3,3) = J_pi_r0;
+    _jacobianOplus[1] = -Jpi * J_pi_pr0;
+
+    // 3. J_e_pri, 2x6
+    Matrix3d J_pi_ti = -Rcb*RiT;
+    Vector3d taux = RiT* ( R0*Rcb.transpose()*(P0 - tcb) + t0 - ti );
+    Matrix3d J_pi_ri = Rcb*SO3::hat(taux);
+    Matrix<double,3,6> J_pi_pri;
+    J_pi_pri.topLeftCorner(3,3) = J_pi_ti;
+    J_pi_pri.topRightCorner(3,3) = J_pi_ri;
+    _jacobianOplus[2] = -Jpi * J_pi_pri;
+
+    // 4. J_e_prcb, 2x6
+    Matrix3d J_pi_tcb = Matrix3d::Identity() - Rcic0;
+    Matrix3d J_pi_rcb = - SO3::hat( Rcic0*(P0-tcb) )*Rcb
+                        + Rcic0* SO3::hat( P0-tcb )*Rcb
+                        - Rcb* SO3::hat( RiT*(t0-ti) );
+    Matrix<double,3,6> J_pi_prcb;
+    J_pi_prcb.topLeftCorner(3,3) = J_pi_tcb;
+    J_pi_prcb.topRightCorner(3,3) = J_pi_rcb;
+    _jacobianOplus[3] = -Jpi * J_pi_prcb;
+}
+
 void EdgeNavStatePRV::computeError()
 {
     const VertexNavStatePR* vPRi = static_cast<const VertexNavStatePR*>(_vertices[0]);

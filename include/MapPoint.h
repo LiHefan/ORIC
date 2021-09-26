@@ -35,6 +35,13 @@ class KeyFrame;
 class Map;
 class Frame;
 
+class cmpKeyFrameId
+{
+public:
+    bool operator() (const KeyFrame* a, const KeyFrame* b) const;
+};
+
+typedef std::map<KeyFrame*,size_t,cmpKeyFrameId> mapMapPointObs;
 
 class MapPoint
 {
@@ -48,7 +55,8 @@ public:
     cv::Mat GetNormal();
     KeyFrame* GetReferenceKeyFrame();
 
-    std::map<KeyFrame*,size_t> GetObservations();
+    //std::map<KeyFrame*,size_t> GetObservations();
+    mapMapPointObs GetObservations();
     int Observations();
 
     void AddObservation(KeyFrame* pKF,size_t idx);
@@ -80,6 +88,9 @@ public:
     float GetMaxDistanceInvariance();
     int PredictScale(const float &currentDist, KeyFrame*pKF);
     int PredictScale(const float &currentDist, Frame* pF);
+    // add for IMU
+    // -------------------------------------------------------
+    void UpdateScale(float scale);
 
 public:
     long unsigned int mnId;
@@ -118,7 +129,8 @@ protected:
      cv::Mat mWorldPos;
 
      // Keyframes observing the point and associated index in keyframe
-     std::map<KeyFrame*,size_t> mObservations;
+     //std::map<KeyFrame*,size_t> mObservations;
+     mapMapPointObs mObservations;
 
      // Mean viewing direction
      cv::Mat mNormalVector;

@@ -33,6 +33,8 @@
 #include <mutex>
 #include "Thirdparty/g2o/g2o/types/types_seven_dof_expmap.h"
 
+#include "IMU/configparam.h"
+
 namespace ORB_SLAM2
 {
 
@@ -144,6 +146,22 @@ protected:
 
 
     bool mnFullBAIdx;
+
+// add for IMU
+// ----------------------------------------------------------
+public:
+    ConfigParam* mpParams;
+
+    bool GetMapUpdateFlagForTracking();
+    void SetMapUpdateFlagInTracking(bool bflag);
+    LoopClosing(Map* pMap, KeyFrameDatabase* pDB, ORBVocabulary* pVoc,const bool bFixScale, ConfigParam* pParams);
+
+protected:
+    std::mutex mMutexMapUpdateFlag;
+    bool mbMapUpdateFlagForTracking;
+
+
+
 };
 
 } //namespace ORB_SLAM

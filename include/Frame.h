@@ -32,6 +32,10 @@
 
 #include <opencv2/opencv.hpp>
 
+#include <IMU/imudata.h>
+#include <IMU/NavState.h>
+#include <IMU/IMUPreintegrator.h>
+
 namespace ORB_SLAM2
 {
 #define FRAME_GRID_ROWS 48
@@ -43,6 +47,7 @@ class KeyFrame;
 class Frame
 {
 public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     Frame();
 
     // Copy constructor.
@@ -206,6 +211,38 @@ private:
     cv::Mat mtcw;
     cv::Mat mRwc;
     cv::Mat mOw; //==mtwc
+
+// add for IMU
+public:
+    // Constructor for Monocular VI
+    Frame(const cv::Mat &imGray, const double &timeStamp, const std::vector<IMUData> &vimu, ORBextractor* extractor,ORBVocabulary* voc,
+          cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth, KeyFrame* pLastKF=NULL);
+    
+    // Constructor for RGB-D VI
+    Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeStamp, const std::vector<IMUData> &vimu, ORBextractor* extractor,ORBVocabulary* voc,
+          cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth, KeyFrame* pLastKF=NULL);
+    
+    void ComputeIMUPreIntSinceLastFrame(const Frame* pLastF, IMUPreintegrator& imupreint) const;
+    void UpdatePoseFromNS(const cv::Mat &Tbc);
+    void SetInitialNavStateAndBias(const NavState& ns);
+    void UpdateNavState(const IMUPreintegrator& imupreint, const Vector3d& gw);
+    const NavState& GetNavState(void) const;
+    void SetNavState(const NavState& ns);
+    void SetNavStateBiasGyr(const Vector3d &bg);
+    void SetNavStateBiasAcc(const Vector3d& ba);
+
+    //  IMU data from last frame to this frame
+    std::vector<IMUData> mvIMUDataSinceLastFrame;
+
+    // For pose optimization, use as prior and prior information(inverse covariance)
+    Matrix<double,15,15> mMargCovInv;
+    NavState mNavStatePrior;
+
+protected:
+    NavState mNavState;
+
+
+    
 };
 
 }// namespace ORB_SLAM

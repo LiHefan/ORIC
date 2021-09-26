@@ -29,6 +29,11 @@ namespace ORB_SLAM2
 long unsigned int MapPoint::nNextId=0;
 mutex MapPoint::mGlobalMutex;
 
+bool cmpKeyFrameId::operator() (const KeyFrame* a, const KeyFrame* b) const
+{
+    return a->mnId < b->mnId;
+}
+
 MapPoint::MapPoint(const cv::Mat &Pos, KeyFrame *pRefKF, Map* pMap):
     mnFirstKFid(pRefKF->mnId), mnFirstFrame(pRefKF->mnFrameId), nObs(0), mnTrackReferenceForFrame(0),
     mnLastFrameSeen(0), mnBALocalForKF(0), mnFuseCandidateForKF(0), mnLoopPointForKF(0), mnCorrectedByKF(0),
@@ -123,9 +128,28 @@ void MapPoint::EraseObservation(KeyFrame* pKF)
 
             mObservations.erase(pKF);
 
+            KeyFrame* pKFrefnew = NULL;
+            for(auto ob : mObservations)
+            {
+                KeyFrame* pkfi = ob.first;
+                if(!pkfi->isBad())
+                {
+                    pKFrefnew = pkfi;
+                    break;
+                }
+            }
+
             if(mpRefKF==pKF)
+            {
                 mpRefKF=mObservations.begin()->first;
 
+                if(!pKFrefnew)
+                    mpRefKF = pKFrefnew;
+                else
+                    bBad = true;
+
+            }
+                
             // If only 2 observations or less, discard point
             if(nObs<=2)
                 bBad=true;
@@ -136,7 +160,8 @@ void MapPoint::EraseObservation(KeyFrame* pKF)
         SetBadFlag();
 }
 
-map<KeyFrame*, size_t> MapPoint::GetObservations()
+//map<KeyFrame*, size_t> MapPoint::GetObservations()
+mapMapPointObs MapPoint::GetObservations()
 {
     unique_lock<mutex> lock(mMutexFeatures);
     return mObservations;
@@ -150,7 +175,7 @@ int MapPoint::Observations()
 
 void MapPoint::SetBadFlag()
 {
-    map<KeyFrame*,size_t> obs;
+    mapMapPointObs/*map<KeyFrame*,size_t>*/ obs;
     {
         unique_lock<mutex> lock1(mMutexFeatures);
         unique_lock<mutex> lock2(mMutexPos);
@@ -180,7 +205,7 @@ void MapPoint::Replace(MapPoint* pMP)
         return;
 
     int nvisible, nfound;
-    map<KeyFrame*,size_t> obs;
+    mapMapPointObs/*map<KeyFrame*,size_t>*/ obs;
     {
         unique_lock<mutex> lock1(mMutexFeatures);
         unique_lock<mutex> lock2(mMutexPos);
@@ -244,7 +269,7 @@ void MapPoint::ComputeDistinctiveDescriptors()
     // Retrieve all observed descriptors
     vector<cv::Mat> vDescriptors;
 
-    map<KeyFrame*,size_t> observations;
+    mapMapPointObs/*map<KeyFrame*,size_t>*/ observations;
 
     {
         unique_lock<mutex> lock1(mMutexFeatures);
@@ -329,7 +354,7 @@ bool MapPoint::IsInKeyFrame(KeyFrame *pKF)
 
 void MapPoint::UpdateNormalAndDepth()
 {
-    map<KeyFrame*,size_t> observations;
+    mapMapPointObs/*map<KeyFrame*,size_t>*/ observations;
     KeyFrame* pRefKF;
     cv::Mat Pos;
     {
@@ -414,6 +439,15 @@ int MapPoint::PredictScale(const float &currentDist, Frame* pF)
         nScale = pF->mnScaleLevels-1;
 
     return nScale;
+}
+
+// add for IMU
+// ------------------------------------------------------
+void MapPoint::UpdateScale(float scale)
+{
+    SetWorldPos(GetWorldPos()*scale);
+    mfMaxDistance *= scale;
+    mfMinDistance *= scale;
 }
 
 

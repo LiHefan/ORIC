@@ -38,12 +38,15 @@ endif()
 
 find_package(Eigen3 3.1.0 REQUIRED)
 find_package(Pangolin REQUIRED)
+find_package(Cholmod REQUIRED)
 
 include_directories(
 ${PROJECT_SOURCE_DIR}
 ${PROJECT_SOURCE_DIR}/include
+${PROJECT_SOURCE_DIR}/src
 ${EIGEN3_INCLUDE_DIR}
 ${Pangolin_INCLUDE_DIRS}
+${CHOLMOD_INCLUDE_DIR}
 )
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
@@ -71,13 +74,13 @@ src/Viewer.cc
 src/MapCuboid.cc
 src/matrix_utils.cc
 src/CuboidMode.cc
-src/TestCuboid.cc
 
 src/IMU/imudata.cpp
 src/IMU/IMUPreintegrator.cpp
 src/IMU/so3.cpp
 src/IMU/NavState.cpp
 src/IMU/g2otypes.cpp
+src/IMU/configparam.cpp
 )
 
 target_link_libraries(${PROJECT_NAME}
@@ -86,6 +89,10 @@ ${EIGEN3_LIBS}
 ${Pangolin_LIBRARIES}
 ${PROJECT_SOURCE_DIR}/Thirdparty/DBoW2/lib/libDBoW2.so
 ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o.so
+cholmod
+${CHOLMOD_LIBRARIES}
+${BLAS_LIBRARIES}
+${LAPACK_LIBRARIES}
 )
 
 # Build examples

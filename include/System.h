@@ -36,6 +36,8 @@
 #include "ORBVocabulary.h"
 #include "Viewer.h"
 
+#include "IMU/imudata.h"
+
 namespace ORB_SLAM2
 {
 
@@ -174,6 +176,15 @@ private:
     std::vector<MapPoint*> mTrackedMapPoints;
     std::vector<cv::KeyPoint> mTrackedKeyPointsUn;
     std::mutex mMutexState;
+// add for IMU    
+public:
+    bool bLocalMapAcceptKF(void);
+    void SaveKeyFrameTrajectoryNavState(const string& filename);
+
+    cv::Mat TrackMonoVI(const cv::Mat &im, const std::vector<IMUData> &vimu, const double &timestamp);
+private:
+    std::thread* mptLocalMappingVIOInit;
+
 };
 
 }// namespace ORB_SLAM

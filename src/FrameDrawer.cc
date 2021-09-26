@@ -33,6 +33,9 @@ FrameDrawer::FrameDrawer(Map* pMap):mpMap(pMap)
 {
     mState=Tracking::SYSTEM_NOT_READY;
     mIm = cv::Mat(480,640,CV_8UC3, cv::Scalar(0,0,0));
+
+    mStartTime = -1;
+    mCurTime = -1;
 }
 
 cv::Mat FrameDrawer::DrawFrame()
@@ -198,6 +201,10 @@ void FrameDrawer::Update(Tracking *pTracker)
         }
     }
     mState=static_cast<int>(pTracker->mLastProcessedState);
-}
+    
+    mCurTime = pTracker->mCurrentFrame.mTimeStamp;
+    if(mStartTime<0)
+        mStartTime = mCurTime;
+    }
 
 } //namespace ORB_SLAM

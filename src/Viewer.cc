@@ -26,6 +26,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "CuboidMode.h"
+
 namespace ORB_SLAM2
 {
 
@@ -138,13 +140,16 @@ void Viewer::Run()
             mpMapDrawer->DrawKeyFrames(menuShowKeyFrames,menuShowGraph);
         if(menuShowPoints)
             mpMapDrawer->DrawMapPoints();
-        if(menuShowTruthCuboids)
-            mpMapDrawer->DrawTruthCuboids();
-        if(menuShowMapCuboids)
-            mpMapDrawer->DrawMapCuboids();
-        if(menuShowTruthCamPoses)
-            mpMapDrawer->DrawTruthCameraPose();
-
+        if(ORB_SLAM2::CuboidMode)
+        {
+            if(menuShowTruthCuboids)
+                mpMapDrawer->DrawTruthCuboids();
+            if(menuShowMapCuboids)
+                mpMapDrawer->DrawMapCuboids();
+            if(menuShowTruthCamPoses)
+                mpMapDrawer->DrawTruthCameraPose();
+        }
+        
         pangolin::FinishFrame();
 
         cv::Mat im = mpFrameDrawer->DrawFrame();

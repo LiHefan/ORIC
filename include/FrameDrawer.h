@@ -49,6 +49,8 @@ public:
     cv::Mat DrawFrame();
 
 protected:
+    double mStartTime;
+    double mCurTime;
 
     void DrawTextInfo(cv::Mat &im, int nState, cv::Mat &imText);
 

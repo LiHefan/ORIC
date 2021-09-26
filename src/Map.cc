@@ -24,6 +24,10 @@
 
 namespace ORB_SLAM2
 {
+bool KFIdCompare::operator()(const KeyFrame* kfleft,const KeyFrame* kfright) const
+{
+    return kfleft->mnId < kfright->mnId;
+}
 
 Map::Map():mnMaxKFid(0),mnBigChangeIdx(0)
 {
@@ -153,6 +157,29 @@ long unsigned int Map::MapCuboidsInMap()
 {
     unique_lock<mutex> lock(mMutexMap);
     return mspMapCuboids.size();
+}
+
+//------------------------------------------------------------
+//  add for IMU
+
+void Map::UpdateScale(const double &scale)
+{
+    unique_lock<mutex> lock(mMutexMapUpdate);
+    for(std::set<KeyFrame*,KFIdCompare>::iterator sit=mspKeyFrames.begin(),send=mspKeyFrames.end(); sit!=send; sit++)
+    {
+        KeyFrame* pKF = *sit;
+        cv::Mat Tcw = pKF->GetPose();
+        cv::Mat tcw = Tcw.rowRange(0,3).col(3)*scale;
+        tcw.copyTo(Tcw.rowRange(0,3).col(3));
+        pKF->SetPose(Tcw);
+    }
+
+    for(std::set<MapPoint*>::iterator sit=mspMapPoints.begin(), send=mspMapPoints.end(); sit!=send; sit++)
+    {
+        MapPoint* pMP = *sit;
+        pMP->UpdateScale(scale);
+    }
+    std::cout<<std::endl<<"... Map scale updated ..."<<std::endl<<std::endl;
 }
 
 } //namespace ORB_SLAM

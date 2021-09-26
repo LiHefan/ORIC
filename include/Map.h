@@ -39,6 +39,12 @@ class MapCuboid;
 class MapPoint;
 class KeyFrame;
 
+class KFIdCompare
+{
+public:
+    bool operator()(const KeyFrame* kfleft, const KeyFrame* kfright) const;
+};
+
 class Map
 {
 public:
@@ -77,7 +83,7 @@ public:
 protected:
     std::set<MapPoint*> mspMapPoints;
     std::set<MapCuboid*> mspMapCuboids;
-    std::set<KeyFrame*> mspKeyFrames;
+    std::set<KeyFrame*,KFIdCompare> mspKeyFrames;
 
     std::vector<MapPoint*> mvpReferenceMapPoints;
 
@@ -87,6 +93,11 @@ protected:
     int mnBigChangeIdx;
 
     std::mutex mMutexMap;
+//  ------------------------------------------------------------------------
+//  add for IMU
+public:
+    //  Update after an absolute scale is available
+    void UpdateScale(const double &scale);
 };
 
 } //namespace ORB_SLAM
