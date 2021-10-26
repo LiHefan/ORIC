@@ -9,4 +9,6 @@ namespace ORB_SLAM2
     std::string TruthCamFile;
     std::string ErrorType3D;
     double ErrorWeight3D;
+
+    bool bDrawBBox;
 }

@@ -78,9 +78,10 @@ void Viewer::Run()
     pangolin::Var<bool> menuLocalizationMode("menu.Localization Mode",false,true);
     pangolin::Var<bool> menuReset("menu.Reset",false,false);
     //add for cuboid
-    pangolin::Var<bool> menuShowTruthCuboids("menu.Show Truth Cuboids",true,true);
-    pangolin::Var<bool> menuShowMapCuboids("menu.Show Map Cuboids",true,true);
-    pangolin::Var<bool> menuShowTruthCamPoses("menu.Show Truth Camera Poses",true,true);
+    pangolin::Var<bool> menuShowTruthCuboids("menu.Truth Cuboids",true,true);
+    pangolin::Var<bool> menuShowMapCuboids("menu.Map Cuboids",true,true);
+    pangolin::Var<bool> menuShowCurCuboidsDetection("menu.Current Cuboids",true,true);
+    pangolin::Var<bool> menuShowTruthCamPoses("menu.Truth Camera Poses",true,true);
 
     // Define Camera Render Object (for view / scene browsing)
     pangolin::OpenGlRenderState s_cam(
@@ -143,11 +144,25 @@ void Viewer::Run()
         if(ORB_SLAM2::CuboidMode)
         {
             if(menuShowTruthCuboids)
-                mpMapDrawer->DrawTruthCuboids();
+            {
+                Eigen::MatrixXd TruthCuboids;
+                read_all_number_txt(ORB_SLAM2::TruthCuboidFile,TruthCuboids);
+                mpMapDrawer->mmatTruthCuboids=TruthCuboids;
+                 mpMapDrawer->DrawTruthCuboids();
+            }
             if(menuShowMapCuboids)
                 mpMapDrawer->DrawMapCuboids();
-            if(menuShowTruthCamPoses)
-                mpMapDrawer->DrawTruthCameraPose();
+            if(menuShowCurCuboidsDetection)
+            {
+                mnCurrentId = mpTracker->mCurrentFrame.mnId;
+                double curTimeStamp = mpTracker->mCurrentFrame.mTimeStamp*100;
+                mnCurrentEurocStamp=static_cast<long>(curTimeStamp);
+                mTwc = mpTracker->mCurrentFrame.GetPoseInverse();
+                if(mnCurrentEurocStamp>0)
+                    mpMapDrawer->DrawCurrentCuboidsDetection(mnCurrentEurocStamp,mTwc);
+            }
+            // if(menuShowTruthCamPoses)
+            //     mpMapDrawer->DrawTruthCameraPose();
         }
         
         pangolin::FinishFrame();

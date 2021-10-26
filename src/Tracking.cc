@@ -1713,17 +1713,20 @@ void Tracking::InformOnlyTracking(const bool &flag)
 
 void Tracking::DetectCuboid(KeyFrame* pKF)
 {
-    int frame_idx = pKF->mnFrameId;
-    char frame_idx_c[256];
-    sprintf(frame_idx_c,"%04d", frame_idx);
+    // int frame_idx = pKF->mnFrameId;
+    // char frame_idx_c[256];
+    // sprintf(frame_idx_c,"%04d", frame_idx);
+    long nTimeStamp;
+    nTimeStamp = static_cast<long>(pKF->mTimeStamp*100);
+
     //TODO: read offline bbox
-    string cur_bbox_txt = LocalBBoxFolder + "/" + to_string(frame_idx) + "_yolov3_0.15.txt";
+    string cur_bbox_txt = LocalBBoxFolder + "/" + to_string(nTimeStamp) + "_yolov3_0.15.txt";
     Eigen::MatrixXd local_bbox_mat;
     if(!read_local_bbox_txt(cur_bbox_txt,local_bbox_mat))
         exit(-1);
 
     //read offline local cuboid measurement
-    string cur_meas_txt = LocalMeasFolder + "/" + frame_idx_c +"_3d_cuboids.txt";
+    string cur_meas_txt = LocalMeasFolder + "/" + to_string(nTimeStamp) +"_3d_cuboids.txt";
     vector<string> class_names;
     Eigen::MatrixXd local_cuboids_mat;
     if(!read_local_meas_txt(cur_meas_txt,class_names,local_cuboids_mat))
@@ -1743,7 +1746,7 @@ void Tracking::DetectCuboid(KeyFrame* pKF)
         Eigen::Vector4d bbox =  local_bbox_mat.row(cub_id).head(4);
         pKF->mvBBoxes.push_back(bbox);
         vector<MapCuboid*> vpMapCuboids = mpMap->GetAllMapCuboids();
-        cout << "The number of cuboids in map: "<<vpMapCuboids.size()<<endl;
+        //cout << "The number of cuboids in map: "<<vpMapCuboids.size()<<endl;
         size_t i=0;
         for(i = 0;i<vpMapCuboids.size();++i)
         {   

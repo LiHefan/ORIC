@@ -36,6 +36,7 @@
 #include <IMU/NavState.h>
 #include <IMU/IMUPreintegrator.h>
 
+
 namespace ORB_SLAM2
 {
 #define FRAME_GRID_ROWS 48
@@ -73,6 +74,9 @@ public:
 
     // Computes rotation, translation and camera center matrices from the camera pose.
     void UpdatePoseMatrices();
+
+    // Get Twc
+    cv::Mat GetPoseInverse();
 
     // Returns the camera center.
     inline cv::Mat GetCameraCenter(){
@@ -167,6 +171,7 @@ public:
 
     // Camera pose.
     cv::Mat mTcw;
+    cv::Mat mTwc;
 
     // Current and Next Frame id.
     static long unsigned int nNextId;
@@ -211,6 +216,7 @@ private:
     cv::Mat mtcw;
     cv::Mat mRwc;
     cv::Mat mOw; //==mtwc
+
 
 // add for IMU
 public:

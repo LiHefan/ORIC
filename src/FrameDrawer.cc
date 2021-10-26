@@ -26,6 +26,11 @@
 
 #include<mutex>
 
+#include "CuboidMode.h"
+#include <iostream>
+#include <fstream>
+#include <sstream>
+
 namespace ORB_SLAM2
 {
 
@@ -122,6 +127,27 @@ cv::Mat FrameDrawer::DrawFrame()
         }
     }
 
+    if(ORB_SLAM2::bDrawBBox)
+    {
+        //cout<<"Current timestamp: "<< mnCurrentEurocStamp <<endl;
+        string cur_bbox_txt = LocalBBoxFolder + "/" + to_string(mnCurrentEurocStamp) + "_yolov3_0.15.txt";
+        ifstream fin(cur_bbox_txt);
+        string line;
+        while(getline(fin,line) && line!="")
+        {
+            istringstream iss(line);
+            string name;
+            int u,v,w,h;
+            iss>>name>>u>>v>>w>>h;
+            cv::Point2f pt1,pt2;
+            pt1.x=u;
+            pt1.y=v;
+            pt2.x=u+w;
+            pt2.y=v+h;
+            cv::rectangle(im,pt1,pt2,cv::Scalar(0,255,0));
+        }
+    }
+
     cv::Mat imWithInfo;
     DrawTextInfo(im,state, imWithInfo);
 
@@ -172,6 +198,9 @@ void FrameDrawer::Update(Tracking *pTracker)
     unique_lock<mutex> lock(mMutex);
     pTracker->mImGray.copyTo(mIm);
     mvCurrentKeys=pTracker->mCurrentFrame.mvKeys;
+    mnCurrentId=pTracker->mCurrentFrame.mnId;
+    double curTimeStamp=pTracker->mCurrentFrame.mTimeStamp*100;
+    mnCurrentEurocStamp=static_cast<long>(curTimeStamp);
     N = mvCurrentKeys.size();
     mvbVO = vector<bool>(N,false);
     mvbMap = vector<bool>(N,false);

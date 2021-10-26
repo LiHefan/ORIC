@@ -24,6 +24,13 @@
 #include <pangolin/pangolin.h>
 #include <mutex>
 
+#include "CuboidMode.h"
+#include "MapCuboid.h"
+#include "Converter.h"
+#include <iostream>
+#include <fstream>
+#include <sstream>
+
 namespace ORB_SLAM2
 {
 
@@ -305,7 +312,7 @@ void MapDrawer::DrawTruthCuboids()
 
         glLineWidth(mGraphLineWidth*2);
         glBegin(GL_LINES);
-        Eigen::Vector3f box_color = Eigen::Vector3f(0, 230, 0) / 255.0;
+        Eigen::Vector3f box_color = Eigen::Vector3f(0, 0, 0) / 255.0;
         glColor4f(box_color(0), box_color(1), box_color(2), 1.0f);
         for(int line_id = 0; line_id < AllEdgeIds.rows(); line_id++)
         {
@@ -348,7 +355,7 @@ void MapDrawer::DrawMapCuboids()
         cuboid_corners = vpMCs[i]->GetWorldPos().compute3D_BoxCorner();
         glLineWidth(mGraphLineWidth*2);
         glBegin(GL_LINES);
-        Eigen::Vector3f box_color = Eigen::Vector3f(230, 0, 0) / 255.0;
+        Eigen::Vector3f box_color = Eigen::Vector3f(0, 0, 255) / 255.0;
         glColor4f(box_color(0), box_color(1), box_color(2), 1.0f);
         for(int line_id = 0; line_id < AllEdgeIds.rows(); line_id++)
         {
@@ -360,6 +367,55 @@ void MapDrawer::DrawMapCuboids()
         glPopMatrix();
     }
     
+}
+
+void MapDrawer::DrawCurrentCuboidsDetection(long id, cv::Mat Twc)
+{
+    Eigen::MatrixXd AllEdgeIds;
+	AllEdgeIds.resize(14, 2); // draw 12 edges + front
+	AllEdgeIds << 1, 2, 2, 3, 3, 4, 4, 1, 5, 6, 6, 7, 7, 8, 8, 5, 1, 5, 2, 6, 3, 7, 4, 8, 1, 6, 2, 5;
+	AllEdgeIds.array() -= 1;
+    
+    //const vector<MapCuboid*>& vpMCs = mpMap->GetAllMapCuboids();
+    // char frame_idx_c[256];
+    // sprintf(frame_idx_c,"%04d", id);
+    vector<g2o::cuboid> vLocalMeas;
+    //read offline local cuboid measurement
+    string cur_meas_txt = LocalMeasFolder + "/" + to_string(id) +"_3d_cuboids.txt";
+    vector<string> class_names;
+    Eigen::MatrixXd local_cuboids_mat;
+    if(!read_local_meas_txt(cur_meas_txt,class_names,local_cuboids_mat))
+        //exit(-1);
+        ;
+    for(int cub_id=0;cub_id<local_cuboids_mat.rows();cub_id++)
+    {
+        typedef Eigen::Matrix<double, 9, 1> Vector9d;
+        Vector9d measure_data = local_cuboids_mat.row(cub_id).head(9);
+        g2o::cuboid cur_cub;
+        cur_cub.fromMinimalVector(measure_data);
+        g2o::SE3Quat se3_Twc = Converter::toSE3Quat(Twc);
+        cur_cub = cur_cub.transform_from(se3_Twc);
+        vLocalMeas.push_back(cur_cub);
+    }
+    
+
+    for(size_t i=0;i<vLocalMeas.size();++i)
+    {   
+        Eigen::MatrixXd cuboid_corners(3,8);
+        cuboid_corners = vLocalMeas[i].compute3D_BoxCorner();
+        glLineWidth(mGraphLineWidth*2);
+        glBegin(GL_LINES);
+        Eigen::Vector3f box_color = Eigen::Vector3f(255, 0, 0) / 255.0;
+        glColor4f(box_color(0), box_color(1), box_color(2), 1.0f);
+        for(int line_id = 0; line_id < AllEdgeIds.rows(); line_id++)
+        {
+            glVertex3f(cuboid_corners(0, AllEdgeIds(line_id,0)), cuboid_corners(1, AllEdgeIds(line_id,0)), cuboid_corners(2, AllEdgeIds(line_id,0)));
+            glVertex3f(cuboid_corners(0, AllEdgeIds(line_id,1)), cuboid_corners(1, AllEdgeIds(line_id,1)), cuboid_corners(2, AllEdgeIds(line_id,1)));
+            
+        }
+        glEnd();
+        glPopMatrix();
+    }
 }
 
 } //namespace ORB_SLAM

@@ -48,7 +48,8 @@ public:
 
     void DrawMapCuboids();
     void DrawTruthCuboids();
-    void DrawTruthCameraPose(); 
+    void DrawTruthCameraPose();
+    void DrawCurrentCuboidsDetection(long id, cv::Mat Twc);
 
     Eigen::MatrixXd mmatTruthCuboids;
     Eigen::MatrixXd mmatTruthCamPoses;

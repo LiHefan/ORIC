@@ -23,6 +23,7 @@
 #include<algorithm>
 #include<fstream>
 #include<chrono>
+#include<string>
 
 #include<ros/ros.h>
 #include <cv_bridge/cv_bridge.h>
@@ -54,6 +55,8 @@ public:
     ORB_SLAM2::System* mpSLAM;
 };
 
+void LoadParameters(const string &strSettingFile);
+
 int main(int argc, char **argv)
 {
     ros::init(argc, argv, "Mono");
@@ -70,8 +73,8 @@ int main(int argc, char **argv)
     ORB_SLAM2::System SLAM(argv[1],argv[2],ORB_SLAM2::System::MONOCULAR,true);
 
     ORB_SLAM2::ConfigParam config(argv[2]);
+    LoadParameters(argv[2]);
 
-    ORB_SLAM2::CuboidMode = false;
 
     /**
      * @brief added data sync
@@ -249,7 +252,11 @@ int main(int argc, char **argv)
                     if(imageMsg->header.stamp.toSec() < startT+config._testDiscardTime)
                         im = cv::Mat::zeros(im.rows,im.cols,im.type());
                 }
+
+                long lStamp=static_cast<long>(imageMsg->header.stamp.toSec()*100);
+                //cout<<"Current timestamp: "<< lStamp <<endl;
                 SLAM.TrackMonoVI(im, vimuData, imageMsg->header.stamp.toSec() - imageMsgDelaySec);
+                
                 //SLAM.TrackMonoVI(cv_ptr->image, vimuData, imageMsg->header.stamp.toSec() - imageMsgDelaySec);
                 //cv::imshow("image",cv_ptr->image);
 
@@ -273,8 +280,8 @@ int main(int argc, char **argv)
 
 
     // Save camera trajectory
-    //SLAM.SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory.txt");
-    SLAM.SaveKeyFrameTrajectoryNavState(config._tmpFilePath+"KeyFrameNavStateTrajectory.txt");
+    SLAM.SaveKeyFrameTrajectoryTUM(config._tmpFilePath+"KeyFrameTrajectory.txt");
+    //SLAM.SaveKeyFrameTrajectoryNavState(config._tmpFilePath+"KeyFrameNavStateTrajectory.txt");
 
     cout<<endl<<endl<<"press any key to shutdown"<<endl;
     getchar();
@@ -304,4 +311,19 @@ int main(int argc, char **argv)
 //    mpSLAM->TrackMonocular(cv_ptr->image,cv_ptr->header.stamp.toSec());
 //}
 
+void LoadParameters(const string &strSettingFile)
+{
+    cv::FileStorage fSettings(strSettingFile, cv::FileStorage::READ);
+
+    ORB_SLAM2::bDrawBBox = true;
+    ORB_SLAM2::CuboidMode=static_cast<bool>(int(fSettings["cuboid_mode"]));
+    ORB_SLAM2::TruthCuboidFile=std::string(fSettings["truth_cuboids_txt"]);
+    ORB_SLAM2::LocalMeasFolder=std::string(fSettings["local_measurement_folder"]);
+    ORB_SLAM2::LocalBBoxFolder=std::string(fSettings["local_bbox_folder"]);
+    //ORB_SLAM2::TruthCamFile=std::string(fSettings["truth_cam_pose_txt"]);
+    ORB_SLAM2::ErrorType3D=std::string(fSettings["3d_error_type"]);
+    ORB_SLAM2::ErrorWeight3D=double(fSettings["3d_error_weight"]);
+    cout<<"3d error type: "<<ORB_SLAM2::ErrorType3D<<endl;
+    cout<<"3d error weight: "<<ORB_SLAM2::ErrorWeight3D<<endl;
+}
 

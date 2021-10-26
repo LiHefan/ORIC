@@ -145,10 +145,10 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
         Eigen::MatrixXd TruthCuboids;
         read_all_number_txt(ORB_SLAM2::TruthCuboidFile,TruthCuboids);
         mpMapDrawer->mmatTruthCuboids=TruthCuboids;
-        //add for drawing truth poses
-        Eigen::MatrixXd TruthCamPoses;
-        read_cam_gt_txt(ORB_SLAM2::TruthCamFile, TruthCamPoses);
-        mpMapDrawer->mmatTruthCamPoses=TruthCamPoses;
+        // //add for drawing truth poses
+        // Eigen::MatrixXd TruthCamPoses;
+        // read_cam_gt_txt(ORB_SLAM2::TruthCamFile, TruthCamPoses);
+        // mpMapDrawer->mmatTruthCamPoses=TruthCamPoses;
     }
 }
 

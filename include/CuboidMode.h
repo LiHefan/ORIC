@@ -11,4 +11,6 @@ extern std::string LocalBBoxFolder;
 extern std::string TruthCamFile;
 extern std::string ErrorType3D;
 extern double ErrorWeight3D;
+
+extern bool bDrawBBox;
 }

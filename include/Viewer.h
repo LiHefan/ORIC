@@ -81,6 +81,10 @@ private:
     bool mbStopRequested;
     std::mutex mMutexStop;
 
+    int mnCurrentId;
+    long mnCurrentEurocStamp;
+    cv::Mat mTwc;
+
 };
 
 }

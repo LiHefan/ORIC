@@ -68,6 +68,9 @@ protected:
     Map* mpMap;
 
     std::mutex mMutex;
+
+    int mnCurrentId;
+    long mnCurrentEurocStamp;
 };
 
 } //namespace ORB_SLAM

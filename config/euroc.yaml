@@ -120,4 +120,14 @@ Viewer.ViewpointX: 0
 Viewer.ViewpointY: -0.7
 Viewer.ViewpointZ: -1.8
 Viewer.ViewpointF: 500
+#--------------------------------------------------------------------------------------------
+# Cuboid Mode
+#--------------------------------------------------------------------------------------------
+cuboid_mode: 1
+truth_cuboids_txt: /home/li/dataset/V2_01_easy/mav0/cuboid/truth_cuboid_list_c0.txt
+local_measurement_folder: /home/li/dataset/V2_01_easy/mav0/cuboid/data
+local_bbox_folder: /home/li/dataset/V2_01_easy/mav0/bbox/data
+#truth_cam_pose_txt: /home/li/dataset/living_room_traj2_frei_png/cam_gt_frame0.txt
+3d_error_type: SE3
+3d_error_weight: 1.0
 
